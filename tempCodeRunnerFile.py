@@ -164,7 +164,6 @@ class PacMan:
                 self.powered_up = True
                 self.power_time = time.time()
                 self.score += 50
-                return "power"
 
             # Check if all pellets are collected
             if not maze.pellets and not maze.power_pellets:
@@ -540,11 +539,6 @@ def main_game():
                     # --- end immediate collision check ---
                     if move_result == "win":
                         game_state = "won"
-                    elif move_result == "power":
-                        # new power-up → allow all ghosts to be scared again
-                        for g in ghosts:
-                            g.ate_during_power = False
-                            g.just_respawned = False
 
                 # Check power-up expiration
                 if pacman.powered_up and time.time() - pacman.power_time > power_duration:
@@ -582,9 +576,7 @@ def main_game():
                             ghost_move_result = ghost.move(
                                 target_x, target_y, maze, pacman)
 
-                            if ghost_move_result == "pacman_caught" and (
-                                not pacman.powered_up or ghost.ate_during_power
-                            ):
+                            if ghost_move_result == "pacman_caught" and not pacman.powered_up:
                                 pacman.lives -= 1
                                 if pacman.lives <= 0:
                                     game_state = "game_over"
@@ -608,8 +600,7 @@ def main_game():
                             ghost.simple_random_move(maze)
                             # Check for collision after fallback move
                             if ghost.x == pacman.x and ghost.y == pacman.y:
-                                # only treat as eaten if still scared and eligible
-                                if pacman.powered_up and not ghost.ate_during_power:
+                                if pacman.powered_up:
                                     ghost.reset_position()
                                     pacman.score += 200
                                 else:
