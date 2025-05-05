@@ -57,31 +57,90 @@ class MazeGenerator:
         self.cols = cols
 
     def generate_maze(self):
-        # Simplified maze generation - no genetic algorithm for better performance
-        maze = [[1 for _ in range(self.cols)] for _ in range(self.rows)]
+        # Genetic-Algorithm based maze generation ensuring solvability & balance
+        population = [self._random_candidate() for _ in range(30)]
+        for _ in range(100):
+            # rank by fitness
+            scored = sorted(population, key=self._fitness, reverse=True)
+            elite = scored[:10]
+            # breed next gen
+            population = elite[:]
+            while len(population) < 30:
+                a, b = random.sample(elite, 2)
+                child = self._mutate(self._crossover(a, b), 0.03)
+                population.append(child)
+        best = max(population, key=self._fitness)
+        # enforce border walls and clear Pac-Man start & corners
+        for i in range(self.rows):
+            best[i][0] = best[i][-1] = 1
+        for j in range(self.cols):
+            best[0][j] = best[-1][j] = 1
+        best[1][1] = best[self.rows-2][1] = best[1][self.cols -
+                                                    2] = best[self.rows-2][self.cols-2] = 0
+        return best
 
-        # Make sure the border is walls
+    def _fitness(self, grid):
+        if not self._solvable(grid):  # now checks full connectivity
+            return -1
+        wall_score = sum(sum(row) for row in grid)
+        path_score = self._avg_path_length(grid)
+        # combine: favor dense walls and moderate path length
+        return wall_score + path_score * 0.5
+
+    def _solvable(self, grid):
+        # ensure every empty cell is reachable from (1,1)
+        tot = sum(1 for row in grid for v in row if v == 0)
+        vis = {(1, 1)}
+        q = deque([(1, 1)])
+        while q:
+            x, y = q.popleft()
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                nx, ny = x+dx, y+dy
+                if 0 <= nx < self.cols and 0 <= ny < self.rows and grid[ny][nx] == 0 and (nx, ny) not in vis:
+                    vis.add((nx, ny))
+                    q.append((nx, ny))
+        return len(vis) == tot
+
+    def _avg_path_length(self, grid):
+        from collections import deque
+
+        def dist(dst):
+            visited = set([(1, 1)])
+            queue = deque([((1, 1), 0)])
+            while queue:
+                (x, y), d = queue.popleft()
+                if (x, y) == dst:
+                    return d
+                for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                    nx, ny = x+dx, y+dy
+                    if 0 <= nx < self.cols and 0 <= ny < self.rows and grid[ny][nx] == 0 and (nx, ny) not in visited:
+                        visited.add((nx, ny))
+                        queue.append(((nx, ny), d+1))
+            return self.rows + self.cols
+        corners = [(1, self.rows-2), (self.cols-2, 1),
+                   (self.cols-2, self.rows-2)]
+        return sum(dist(c) for c in corners) / len(corners)
+
+    def _random_candidate(self):
+        grid = [[1]*self.cols for _ in range(self.rows)]
         for i in range(1, self.rows-1):
             for j in range(1, self.cols-1):
-                # Create a simple maze with ~70% open spaces
-                maze[i][j] = 1 if random.random() < 0.3 else 0
+                grid[i][j] = 1 if random.random() < 0.4 else 0
+        return grid
 
-        # Ensure pathways to move around
-        for i in range(2, self.rows-2, 2):
+    def _crossover(self, a, b):
+        mid = self.rows // 2
+        child = [row[:] for row in a]
+        for i in range(mid, self.rows):
+            child[i] = b[i][:]
+        return child
+
+    def _mutate(self, grid, rate):
+        for i in range(1, self.rows-1):
             for j in range(1, self.cols-1):
-                maze[i][j] = 0
-
-        for j in range(2, self.cols-2, 2):
-            for i in range(1, self.rows-1):
-                maze[i][j] = 0
-
-        # Ensure Pacman start and corners are clear
-        maze[1][1] = 0  # Pacman start
-        maze[self.rows-2][1] = 0  # Bottom left
-        maze[1][self.cols-2] = 0  # Top right
-        maze[self.rows-2][self.cols-2] = 0  # Bottom right
-
-        return maze
+                if random.random() < rate:
+                    grid[i][j] = 1 - grid[i][j]
+        return grid
 
 
 class Maze:
@@ -93,15 +152,29 @@ class Maze:
         self.generate_new_maze()
 
     def generate_new_maze(self):
-        # Loading message
+        # Loading message...
         screen.fill(BLACK)
         loading_text = font.render("Generating Maze...", True, WHITE)
-        screen.blit(loading_text, (SCREEN_WIDTH // 2 - loading_text.get_width() // 2,
-                                   SCREEN_HEIGHT // 2 - loading_text.get_height() // 2))
+        screen.blit(loading_text, (SCREEN_WIDTH//2 - loading_text.get_width()//2,
+                                   SCREEN_HEIGHT//2 - loading_text.get_height()//2))
         pygame.display.flip()
 
-        # Generate the maze
-        self.grid = self.generator.generate_maze()
+        # retry until reachable area covers ≥50%
+        total = ROWS * COLS
+        while True:
+            self.grid = self.generator.generate_maze()
+            # compute reachable empty cells
+            vis = {(1, 1)}
+            q = deque([(1, 1)])
+            while q:
+                x, y = q.popleft()
+                for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                    nx, ny = x+dx, y+dy
+                    if (nx, ny) not in vis and 0 <= nx < COLS and 0 <= ny < ROWS and self.grid[ny][nx] == 0:
+                        vis.add((nx, ny))
+                        q.append((nx, ny))
+            if len(vis) >= total//2:
+                break
         self.init_pellets()
 
     def init_pellets(self):
@@ -113,15 +186,25 @@ class Maze:
                 if self.grid[y][x] == 0 and (x, y) != (1, 1):
                     self.pellets.append((x, y))
 
-        # Add power pellets at specific locations
-        self.power_pellets = []
-        power_positions = [(3, 3), (3, COLS-4), (ROWS-4, 3), (ROWS-4, COLS-4)]
-        for x, y in power_positions:
-            # Only add if position is open and valid
-            if 0 <= x < COLS and 0 <= y < ROWS and self.grid[y][x] == 0:
-                self.power_pellets.append((x, y))
-                if (x, y) in self.pellets:
-                    self.pellets.remove((x, y))
+        # Remove unreachable pellets
+        reachable = {(1, 1)}
+        q = deque([(1, 1)])
+        while q:
+            x, y = q.popleft()
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                nx, ny = x+dx, y+dy
+                if (nx, ny) not in reachable and 0 <= nx < COLS and 0 <= ny < ROWS and self.grid[ny][nx] == 0:
+                    reachable.add((nx, ny))
+                    q.append((nx, ny))
+        self.pellets = [p for p in self.pellets if p in reachable]
+
+        # random power-pellets from reachable cells
+        power_candidates = [p for p in reachable if p != (1, 1)]
+        count = min(4, len(power_candidates))
+        self.power_pellets = random.sample(power_candidates, count)
+        for p in self.power_pellets:
+            if p in self.pellets:
+                self.pellets.remove(p)
 
     def draw(self):
         for row in range(ROWS):
@@ -459,13 +542,30 @@ def main_game():
         maze = Maze()
         pacman = PacMan()
 
-        # Create ghosts after maze generation to prevent crashes
-        ghosts = [
-            Ghost(COLS - 2, 1, RED, "A*", "Blinky"),
-            Ghost(1, ROWS - 2, BLUE, "Dijkstra", "Inky"),
-            Ghost(COLS - 2, ROWS - 2, PINK, "BFS", "Pinky"),
-            Ghost(COLS // 2, ROWS // 2, ORANGE, "Greedy", "Clyde")
-        ]
+        # build reachable empty cells
+        all_empty = [(x, y) for y in range(ROWS)
+                     for x in range(COLS) if maze.grid[y][x] == 0]
+        reachable = set()
+        q = deque([(1, 1)])
+        reachable.add((1, 1))
+        while q:
+            x, y = q.popleft()
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                nx, ny = x+dx, y+dy
+                if (nx, ny) in all_empty and (nx, ny) not in reachable:
+                    reachable.add((nx, ny))
+                    q.append((nx, ny))
+
+        # spawn ghosts at random reachable cells with at least one exit
+        ghosts = [Ghost(0, 0, c, alg, n) for c, alg, n in [
+            (RED, "A*", "Blinky"), (BLUE, "Dijkstra", "Inky"),
+            (PINK, "BFS", "Pinky"), (ORANGE, "Greedy", "Clyde")
+        ]]
+        spawnable = [(x, y) for x, y in reachable if (x, y) != (1, 1) and
+                     any((x+dx, y+dy) in reachable for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)])]
+        for g in ghosts:
+            g.x, g.y = random.choice(spawnable)
+            g.start_x, g.start_y = g.x, g.y
 
         # Game loop
         running = True
@@ -473,22 +573,6 @@ def main_game():
         power_duration = 10  # seconds
         last_time = time.time()
         frame_count = 0
-
-        # Make sure ghosts don't start on walls
-        for ghost in ghosts:
-            if maze.grid[ghost.y][ghost.x] == 1:
-                # Find a nearby empty cell
-                for dy in range(-2, 3):
-                    for dx in range(-2, 3):
-                        ny, nx = ghost.y + dy, ghost.x + dx
-                        if (0 <= nx < COLS and 0 <= ny < ROWS and
-                                maze.grid[ny][nx] == 0):
-                            ghost.x, ghost.y = nx, ny
-                            ghost.start_x, ghost.start_y = nx, ny
-                            break
-                    else:
-                        continue
-                    break
 
         while running:
             # Process events
@@ -532,7 +616,10 @@ def main_game():
                                     pacman.x, pacman.y = 1, 1
                                     pacman.powered_up = False
                                     for g in ghosts:
-                                        g.reset_position()
+                                        g.x, g.y = g.start_x, g.start_y
+                                        g.prev_pos = None
+                                        g.just_respawned = False
+                                        g.ate_during_power = False
                                         g.is_scared = False
                                     pygame.display.flip()
                                     pygame.time.delay(1000)
@@ -593,7 +680,10 @@ def main_game():
                                     pacman.x, pacman.y = 1, 1
                                     pacman.powered_up = False
                                     for g in ghosts:
-                                        g.reset_position()
+                                        g.x, g.y = g.start_x, g.start_y
+                                        g.prev_pos = None
+                                        g.just_respawned = False
+                                        g.ate_during_power = False
                                         g.is_scared = False
                                     # Short pause to show loss of life
                                     pygame.display.flip()
@@ -620,7 +710,10 @@ def main_game():
                                         pacman.x, pacman.y = 1, 1
                                         pacman.powered_up = False
                                         for g in ghosts:
-                                            g.reset_position()
+                                            g.x, g.y = g.start_x, g.start_y
+                                            g.prev_pos = None
+                                            g.just_respawned = False
+                                            g.ate_during_power = False
                                             g.is_scared = False
                                         pygame.display.flip()
                                         pygame.time.delay(1000)
