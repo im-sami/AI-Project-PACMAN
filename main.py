@@ -3,6 +3,7 @@ import random
 import heapq
 from collections import deque
 import time
+import os
 
 pygame.init()
 
@@ -27,6 +28,27 @@ screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("Pac-Man with AI")
 clock = pygame.time.Clock()
 font = pygame.font.SysFont('Arial', 25)
+
+# Load and scale images
+
+
+def load_and_scale(path):
+    img = pygame.image.load(path).convert_alpha()
+    return pygame.transform.scale(img, (TILE_SIZE, TILE_SIZE))
+
+
+# Sprites dictionary with correct paths
+SPRITES = {
+    "pacman": load_and_scale(os.path.join("pacman-art", "pacman-right", "1.png")),
+    "blinky": load_and_scale(os.path.join("pacman-art", "ghosts", "blinky.png")),
+    "inky": load_and_scale(os.path.join("pacman-art", "ghosts", "inky.png")),
+    "pinky": load_and_scale(os.path.join("pacman-art", "ghosts", "pinky.png")),
+    "clyde": load_and_scale(os.path.join("pacman-art", "ghosts", "clyde.png")),
+    "scared": load_and_scale(os.path.join("pacman-art", "ghosts", "blue_ghost.png")),
+    "pellet": load_and_scale(os.path.join("pacman-art", "other", "dot.png")),
+    "power_pellet": load_and_scale(os.path.join("pacman-art", "other", "powerup.png")),
+    "wall": load_and_scale(os.path.join("pacman-art", "other", "wall.png")),
+}
 
 
 class MazeGenerator:
@@ -105,22 +127,15 @@ class Maze:
         for row in range(ROWS):
             for col in range(COLS):
                 if self.grid[row][col] == 1:
-                    pygame.draw.rect(screen, BLUE,
-                                     (col * TILE_SIZE, row * TILE_SIZE, TILE_SIZE, TILE_SIZE))
-
+                    screen.blit(SPRITES["wall"],
+                                (col * TILE_SIZE, row * TILE_SIZE))
         # Draw pellets
         for x, y in self.pellets:
-            pygame.draw.circle(screen, WHITE,
-                               (x * TILE_SIZE + TILE_SIZE // 2,
-                                y * TILE_SIZE + TILE_SIZE // 2),
-                               TILE_SIZE // 10)
-
-        # Draw power pellets (larger)
+            screen.blit(SPRITES["pellet"], (x * TILE_SIZE, y * TILE_SIZE))
+        # Draw power pellets
         for x, y in self.power_pellets:
-            pygame.draw.circle(screen, WHITE,
-                               (x * TILE_SIZE + TILE_SIZE // 2,
-                                y * TILE_SIZE + TILE_SIZE // 2),
-                               TILE_SIZE // 4)
+            screen.blit(SPRITES["power_pellet"],
+                        (x * TILE_SIZE, y * TILE_SIZE))
 
 
 class PacMan:
@@ -158,10 +173,8 @@ class PacMan:
         return "blocked"
 
     def draw(self):
-        pygame.draw.circle(screen, self.color,
-                           (self.x * TILE_SIZE + TILE_SIZE // 2,
-                            self.y * TILE_SIZE + TILE_SIZE // 2),
-                           TILE_SIZE // 2 - 2)
+        screen.blit(SPRITES["pacman"], (self.x *
+                    TILE_SIZE, self.y * TILE_SIZE))
 
 
 class Ghost:
@@ -341,11 +354,20 @@ class Ghost:
         return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
     def draw(self):
-        color = self.scared_color if self.is_scared else self.color
-        pygame.draw.circle(screen, color,
-                           (self.x * TILE_SIZE + TILE_SIZE // 2,
-                            self.y * TILE_SIZE + TILE_SIZE // 2),
-                           TILE_SIZE // 2 - 2)
+        if self.is_scared:
+            img = SPRITES["scared"]
+        else:
+            if self.name == "Blinky":
+                img = SPRITES["blinky"]
+            elif self.name == "Inky":
+                img = SPRITES["inky"]
+            elif self.name == "Pinky":
+                img = SPRITES["pinky"]
+            elif self.name == "Clyde":
+                img = SPRITES["clyde"]
+            else:
+                img = SPRITES["blinky"]
+        screen.blit(img, (self.x * TILE_SIZE, self.y * TILE_SIZE))
 
 
 def game_over_screen(score, won=False):
