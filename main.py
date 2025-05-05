@@ -176,55 +176,62 @@ class Ghost:
         self.start_y = y
         self.is_scared = False
         self.scared_color = CYAN
-        self.path_update_counter = 0
-        self.path_update_frequency = 5  # Only update path every 5 moves
 
     def reset_position(self):
         self.x = self.start_x
         self.y = self.start_y
         self.path = []
 
-    def reconstruct_path(self, came_from, current):
-        """Reconstructs the path from start to goal using the came_from dictionary"""
-        path = []
-        while current in came_from:
-            path.insert(0, current)
-            current = came_from[current]
-        return path
-
     def move(self, target_x, target_y, maze, pacman):
         # Don't move if at target
         if self.x == target_x and self.y == target_y:
+            # Still check for collision if on Pac-Man
+            if self.x == pacman.x and self.y == pacman.y:
+                if pacman.powered_up:
+                    self.reset_position()
+                    pacman.score += 200
+                    return "ghost_eaten"
+                else:
+                    return "pacman_caught"
             return
 
         # Use simplified movement if scared to improve performance
         if self.is_scared:
-            return self.simple_move_away(pacman.x, pacman.y, maze)
+            self.simple_move_away(pacman.x, pacman.y, maze)
+            # Check for collision after move
+            if self.x == pacman.x and self.y == pacman.y:
+                if pacman.powered_up:
+                    self.reset_position()
+                    pacman.score += 200
+                    return "ghost_eaten"
+                else:
+                    return "pacman_caught"
+            return
 
-        # Only calculate path occasionally to improve performance
-        self.path_update_counter += 1
-        if len(self.path) == 0 and self.path_update_counter >= self.path_update_frequency:
-            self.path_update_counter = 0
-
-            # Use simplified pathfinding based on ghost type
-            if self.algorithm == "A*":
-                # For A*, use simplified targeting
-                self.path = self.simple_target(target_x, target_y, maze)
-            elif self.algorithm == "Dijkstra":
-                # For Dijkstra, use simple BFS with distance limit
-                self.path = self.simple_bfs(
-                    (self.x, self.y), (target_x, target_y), maze, 10)
-            elif self.algorithm == "BFS":
-                # For BFS, use very simple BFS with short distance
-                self.path = self.simple_bfs(
-                    (self.x, self.y), (target_x, target_y), maze, 5)
-            elif self.algorithm == "Greedy":
-                # For Greedy, just move toward target
-                self.path = self.simple_greedy(target_x, target_y, maze)
+        # Always update path toward target (not just when empty)
+        if self.algorithm == "A*":
+            self.path = self.simple_target(target_x, target_y, maze)
+        elif self.algorithm == "Dijkstra":
+            self.path = self.simple_bfs(
+                (self.x, self.y), (target_x, target_y), maze, 10)
+        elif self.algorithm == "BFS":
+            self.path = self.simple_bfs(
+                (self.x, self.y), (target_x, target_y), maze, 5)
+        elif self.algorithm == "Greedy":
+            self.path = self.simple_greedy(target_x, target_y, maze)
 
         # If no path, move randomly
         if not self.path:
-            return self.simple_random_move(maze)
+            self.simple_random_move(maze)
+            # Check for collision after move
+            if self.x == pacman.x and self.y == pacman.y:
+                if pacman.powered_up:
+                    self.reset_position()
+                    pacman.score += 200
+                    return "ghost_eaten"
+                else:
+                    return "pacman_caught"
+            return
 
         # Move along path
         if self.path:
@@ -456,36 +463,59 @@ def main_game():
                 frame_count += 1
                 if frame_count % 3 == 0:  # Even slower ghost movement
                     for i, ghost in enumerate(ghosts):
-                        # Only move one ghost per frame to reduce CPU load
-                        if frame_count % 4 == i:
-                            # Set target based on whether ghost is scared
-                            if ghost.is_scared:
-                                # Choose random corner to flee to
-                                corners = [(1, 1), (1, ROWS-2),
-                                           (COLS-2, 1), (COLS-2, ROWS-2)]
-                                target = random.choice(corners)
-                                target_x, target_y = target
-                            else:
-                                target_x, target_y = pacman.x, pacman.y
+                        # Move all ghosts every ghost frame (not just one per frame)
+                        # Set target based on whether ghost is scared
+                        if ghost.is_scared:
+                            # Choose random corner to flee to
+                            corners = [(1, 1), (1, ROWS-2),
+                                       (COLS-2, 1), (COLS-2, ROWS-2)]
+                            target = random.choice(corners)
+                            target_x, target_y = target
+                        else:
+                            target_x, target_y = pacman.x, pacman.y
 
-                            # Move ghost
-                            try:
-                                ghost_move_result = ghost.move(
-                                    target_x, target_y, maze, pacman)
+                        # Move ghost
+                        try:
+                            ghost_move_result = ghost.move(
+                                target_x, target_y, maze, pacman)
 
-                                if ghost_move_result == "pacman_caught" and not pacman.powered_up:
+                            if ghost_move_result == "pacman_caught" and not pacman.powered_up:
+                                pacman.lives -= 1
+                                if pacman.lives <= 0:
+                                    game_state = "game_over"
+                                else:
+                                    # Reset positions and states
+                                    pacman.x, pacman.y = 1, 1
+                                    pacman.powered_up = False
+                                    for g in ghosts:
+                                        g.reset_position()
+                                        g.is_scared = False
+                                    # Short pause to show loss of life
+                                    pygame.display.flip()
+                                    pygame.time.delay(1000)
+                                    break  # Stop moving ghosts this frame
+                        except Exception as e:
+                            print(f"Error moving ghost: {e}")
+                            # Fall back to random movement
+                            ghost.simple_random_move(maze)
+                            # Check for collision after fallback move
+                            if ghost.x == pacman.x and ghost.y == pacman.y:
+                                if pacman.powered_up:
+                                    ghost.reset_position()
+                                    pacman.score += 200
+                                else:
                                     pacman.lives -= 1
                                     if pacman.lives <= 0:
                                         game_state = "game_over"
                                     else:
-                                        # Reset positions
                                         pacman.x, pacman.y = 1, 1
+                                        pacman.powered_up = False
                                         for g in ghosts:
                                             g.reset_position()
-                            except Exception as e:
-                                print(f"Error moving ghost: {e}")
-                                # Fall back to random movement
-                                ghost.simple_random_move(maze)
+                                            g.is_scared = False
+                                        pygame.display.flip()
+                                        pygame.time.delay(1000)
+                                        break
 
                 # Render game
                 screen.fill(BLACK)
