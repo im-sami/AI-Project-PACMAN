@@ -38,8 +38,8 @@ class MazeGenerator:
                           total_cells)  # 0..1, higher is more path
         max_path = self.rows + self.cols  # rough upper bound for normalization
         path_score = self._avg_path_length(grid) / max_path  # 0..~1
-        # Reward more open, long-path mazes (more path, less wall)
-        return wall_score * 0.7 + path_score * 0.3
+        # Strongly reward openness (more paths, less wall)
+        return wall_score * 0.9 + path_score * 0.1
 
     def _solvable(self, grid):
         tot = sum(1 for row in grid for v in row if v == 0)
@@ -76,7 +76,8 @@ class MazeGenerator:
         grid = [[1]*self.cols for _ in range(self.rows)]
         for i in range(1, self.rows-1):
             for j in range(1, self.cols-1):
-                grid[i][j] = 1 if random.random() < 0.4 else 0
+                # Lower wall probability for more open mazes
+                grid[i][j] = 1 if random.random() < 0.25 else 0
         return grid
 
     def _crossover(self, a, b):

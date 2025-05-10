@@ -131,8 +131,8 @@ if __name__ == "__main__":
     restart = True
 
     SHOW_GHOST_PATHS = True
-    PATH_COVERAGE_REQUIRED = 0.5
-    SHOW_REJECTED = False
+    PATH_COVERAGE_REQUIRED = 0.0
+    SHOW_REJECTED = True
 
     while restart:
         restart = main_game(show_rejected=SHOW_REJECTED, show_ghost_paths=SHOW_GHOST_PATHS,
