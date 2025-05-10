@@ -3,10 +3,10 @@ import time
 from maze import Maze
 from pacman import PacMan
 from ghost import Ghost, GHOST_CONFIGS
-from utils import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, RED, BLUE, PINK, ORANGE, ROWS, COLS, font, screen, clock, game_over_screen
+from utils import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, RED, BLUE, PINK, ORANGE, ROWS, COLS, font, screen, clock, game_over_screen, TILE_SIZE
 
 
-def main_game(show_rejected=False):
+def main_game(show_rejected=False, show_ghost_paths=True):
     try:
         maze = Maze(show_rejected=show_rejected)
         pacman = PacMan()
@@ -16,6 +16,9 @@ def main_game(show_rejected=False):
         game_state = "playing"
         power_duration = 10  # seconds
         frame_count = 0
+
+        # Assign a unique color for each ghost's path
+        ghost_path_colors = [RED, BLUE, PINK, ORANGE]
 
         while running:
             for event in pygame.event.get():
@@ -50,6 +53,27 @@ def main_game(show_rejected=False):
                 for ghost in ghosts:
                     ghost.update_scared_state(pacman)
 
+                # Always update ghost paths for visualization
+                ghost_paths = []
+                if show_ghost_paths:
+                    for ghost in ghosts:
+                        if not ghost.is_scared:
+                            path = ghost.full_bfs_path(
+                                pacman.x, pacman.y, maze)
+                            ghost.visual_path = path
+                            ghost.path_length = len(path)
+                            ghost_paths.append((ghost, path))
+                        else:
+                            ghost.visual_path = []
+                            ghost.path_length = float('inf')
+
+                    # Build a map: (x, y) -> (ghost_idx, path_length)
+                    tile_to_ghost = {}
+                    for idx, (ghost, path) in enumerate(ghost_paths):
+                        for step, pos in enumerate(path):
+                            if pos not in tile_to_ghost or step < tile_to_ghost[pos][1]:
+                                tile_to_ghost[pos] = (idx, step)
+
                 frame_count += 1
                 if frame_count % 3 == 0:
                     for ghost in ghosts:
@@ -65,7 +89,29 @@ def main_game(show_rejected=False):
                 screen.fill((0, 0, 0))
                 maze.draw()
                 pacman.draw()
-                for ghost in ghosts:
+                for ghost_idx, ghost in enumerate(ghosts):
+                    # Draw ghost path as a colored line if enabled
+                    if show_ghost_paths and hasattr(ghost, "visual_path") and ghost.visual_path:
+                        color = ghost_path_colors[ghost_idx % len(
+                            ghost_path_colors)]
+                        # Only keep tiles where this ghost is the closest
+                        filtered_path = []
+                        for step, pos in enumerate(ghost.visual_path):
+                            if tile_to_ghost.get(pos, (None,))[0] == ghost_idx:
+                                filtered_path.append(pos)
+                        # Draw line from ghost to filtered path
+                        if filtered_path:
+                            points = [
+                                (ghost.x * TILE_SIZE + TILE_SIZE // 2,
+                                 ghost.y * TILE_SIZE + TILE_SIZE // 2)
+                            ] + [
+                                (gx * TILE_SIZE + TILE_SIZE // 2,
+                                 gy * TILE_SIZE + TILE_SIZE // 2)
+                                for gx, gy in filtered_path
+                            ]
+                            if len(points) > 1:
+                                pygame.draw.lines(
+                                    screen, color, False, points, 3)
                     ghost.draw()
                 pacman.draw_hud()
             elif game_state in ("game_over", "won"):

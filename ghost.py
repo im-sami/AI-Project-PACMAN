@@ -185,6 +185,27 @@ class Ghost:
     def simple_greedy(self, target_x, target_y, maze):
         return self.simple_target(target_x, target_y, maze)
 
+    def full_bfs_path(self, target_x, target_y, maze):
+        """Return the full shortest path from current position to (target_x, target_y) as a list of (x, y)."""
+        start = (self.x, self.y)
+        goal = (target_x, target_y)
+        queue = deque([(start, [])])
+        visited = {start}
+        while queue:
+            position, path = queue.popleft()
+            x, y = position
+            if position == goal:
+                return path
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                nx, ny = x + dx, y + dy
+                new_pos = (nx, ny)
+                if (0 <= nx < COLS and 0 <= ny < ROWS and
+                        maze.grid[ny][nx] == 0 and new_pos not in visited):
+                    new_path = path + [new_pos]
+                    queue.append((new_pos, new_path))
+                    visited.add(new_pos)
+        return []
+
     def draw(self):
         if self.is_scared and not self.just_respawned:
             img = SPRITES["scared"]
