@@ -1,6 +1,7 @@
 from utils import SPRITES, TILE_SIZE, screen, CYAN, ROWS, COLS
 import random
 from collections import deque
+import heapq
 
 GHOST_CONFIGS = [
     ("A*", "Blinky"),
@@ -18,6 +19,7 @@ class Ghost:
         self.algorithm = algorithm
         self.name = name
         self.path = []
+        self.visual_path = []
         self.start_x = x
         self.start_y = y
         self.is_scared = False
@@ -62,6 +64,7 @@ class Ghost:
         self.x = self.start_x
         self.y = self.start_y
         self.path = []
+        self.visual_path = []
         self.prev_pos = None
         self.is_scared = False
         self.just_respawned = True
@@ -78,31 +81,98 @@ class Ghost:
     def handle_ai_move(self, pacman, maze, ghosts):
         if self.is_scared:
             self.simple_move_away(pacman.x, pacman.y, maze)
+            self.visual_path = []
         else:
             target_x, target_y = pacman.x, pacman.y
             if self.algorithm == "A*":
-                self.path = self.simple_target(target_x, target_y, maze)
+                path = self.a_star(self.x, self.y, target_x, target_y, maze)
             elif self.algorithm == "Dijkstra":
-                self.path = self.simple_bfs(
-                    (self.x, self.y), (target_x, target_y), maze, 10)
+                path = self.dijkstra(self.x, self.y, target_x, target_y, maze)
             elif self.algorithm == "BFS":
-                self.path = self.simple_bfs(
-                    (self.x, self.y), (target_x, target_y), maze, 5)
+                path = self.full_bfs_path(target_x, target_y, maze)
             elif self.algorithm == "Greedy":
-                self.path = self.simple_greedy(target_x, target_y, maze)
-            if not self.path:
-                self.simple_random_move(maze)
+                path = self.simple_target(target_x, target_y, maze)
             else:
-                next_x, next_y = self.path.pop(0)
-                if self.prev_pos and (next_x, next_y) == self.prev_pos and len(self.path) > 0:
-                    alt = self.path.pop(0)
-                    self.prev_pos = (self.x, self.y)
-                    self.x, self.y = alt
-                else:
-                    self.prev_pos = (self.x, self.y)
-                    self.x, self.y = next_x, next_y
+                path = []
+            self.visual_path = path[:] if path else []
+            if path:
+                next_x, next_y = path[0]
+                self.prev_pos = (self.x, self.y)
+                self.x, self.y = next_x, next_y
+            else:
+                self.simple_random_move(maze)
+                self.visual_path = []
         if self.just_respawned:
             self.just_respawned = False
+
+    def a_star(self, sx, sy, tx, ty, maze):
+        start = (sx, sy)
+        goal = (tx, ty)
+        open_set = []
+        heapq.heappush(open_set, (0 + abs(sx-tx) + abs(sy-ty), 0, start, []))
+        closed = set()
+        while open_set:
+            f, g, pos, path = heapq.heappop(open_set)
+            if pos == goal:
+                return path
+            if pos in closed:
+                continue
+            closed.add(pos)
+            x, y = pos
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                nx, ny = x+dx, y+dy
+                if 0 <= nx < COLS and 0 <= ny < ROWS and maze.grid[ny][nx] == 0:
+                    npos = (nx, ny)
+                    if npos in closed:
+                        continue
+                    npath = path + [npos]
+                    h = abs(nx-tx) + abs(ny-ty)
+                    heapq.heappush(open_set, (g+1+h, g+1, npos, npath))
+        return []
+
+    def dijkstra(self, sx, sy, tx, ty, maze):
+        start = (sx, sy)
+        goal = (tx, ty)
+        open_set = []
+        heapq.heappush(open_set, (0, start, []))
+        closed = set()
+        while open_set:
+            g, pos, path = heapq.heappop(open_set)
+            if pos == goal:
+                return path
+            if pos in closed:
+                continue
+            closed.add(pos)
+            x, y = pos
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                nx, ny = x+dx, y+dy
+                if 0 <= nx < COLS and 0 <= ny < ROWS and maze.grid[ny][nx] == 0:
+                    npos = (nx, ny)
+                    if npos in closed:
+                        continue
+                    npath = path + [npos]
+                    heapq.heappush(open_set, (g+1, npos, npath))
+        return []
+
+    def full_bfs_path(self, target_x, target_y, maze):
+        start = (self.x, self.y)
+        goal = (target_x, target_y)
+        queue = deque([(start, [])])
+        visited = {start}
+        while queue:
+            position, path = queue.popleft()
+            x, y = position
+            if position == goal:
+                return path
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                nx, ny = x + dx, y + dy
+                new_pos = (nx, ny)
+                if (0 <= nx < COLS and 0 <= ny < ROWS and
+                        maze.grid[ny][nx] == 0 and new_pos not in visited):
+                    new_path = path + [new_pos]
+                    queue.append((new_pos, new_path))
+                    visited.add(new_pos)
+        return []
 
     def check_pacman_caught(self, pacman):
         return self.x == pacman.x and self.y == pacman.y and (not self.is_scared or self.ate_during_power)
@@ -159,52 +229,6 @@ class Ghost:
             _, next_x, next_y = valid_moves[0]
             path.append((next_x, next_y))
         return path
-
-    def simple_bfs(self, start, goal, maze, max_depth):
-        queue = deque([(start, [])])
-        visited = {start}
-        depth = 0
-        while queue and depth < max_depth:
-            depth += 1
-            position, path = queue.popleft()
-            x, y = position
-            if position == goal:
-                return path
-            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-                nx, ny = x + dx, y + dy
-                new_pos = (nx, ny)
-                if (0 <= nx < COLS and 0 <= ny < ROWS and
-                        maze.grid[ny][nx] == 0 and new_pos not in visited):
-                    new_path = path + [new_pos]
-                    queue.append((new_pos, new_path))
-                    visited.add(new_pos)
-        if queue:
-            return queue[0][1]
-        return []
-
-    def simple_greedy(self, target_x, target_y, maze):
-        return self.simple_target(target_x, target_y, maze)
-
-    def full_bfs_path(self, target_x, target_y, maze):
-        """Return the full shortest path from current position to (target_x, target_y) as a list of (x, y)."""
-        start = (self.x, self.y)
-        goal = (target_x, target_y)
-        queue = deque([(start, [])])
-        visited = {start}
-        while queue:
-            position, path = queue.popleft()
-            x, y = position
-            if position == goal:
-                return path
-            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-                nx, ny = x + dx, y + dy
-                new_pos = (nx, ny)
-                if (0 <= nx < COLS and 0 <= ny < ROWS and
-                        maze.grid[ny][nx] == 0 and new_pos not in visited):
-                    new_path = path + [new_pos]
-                    queue.append((new_pos, new_path))
-                    visited.add(new_pos)
-        return []
 
     def draw(self):
         if self.is_scared and not self.just_respawned:
