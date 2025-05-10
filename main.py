@@ -6,9 +6,9 @@ from ghost import Ghost, GHOST_CONFIGS
 from utils import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, RED, BLUE, PINK, ORANGE, ROWS, COLS, font, screen, clock, game_over_screen
 
 
-def main_game():
+def main_game(show_rejected=False):
     try:
-        maze = Maze()
+        maze = Maze(show_rejected=show_rejected)
         pacman = PacMan()
         ghosts = Ghost.create_ghosts(maze)
 
@@ -100,6 +100,8 @@ def main_game():
 if __name__ == "__main__":
     pygame.init()
     restart = True
+    # Set this to True to see rejected mazes
+    show_rejected = False
     while restart:
-        restart = main_game()
+        restart = main_game(show_rejected=show_rejected)
     pygame.quit()

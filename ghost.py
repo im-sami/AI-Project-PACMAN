@@ -41,8 +41,15 @@ class Ghost:
                 if (nx, ny) in all_empty and (nx, ny) not in reachable:
                     reachable.add((nx, ny))
                     q.append((nx, ny))
-        spawnable = [(x, y) for x, y in reachable if (x, y) != (1, 1) and
-                     any((x+dx, y+dy) in reachable for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)])]
+        spawnable = []
+        for x, y in reachable:
+            if (x, y) == (1, 1):
+                continue
+            for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                neighbor = (x + dx, y + dy)
+                if neighbor in reachable:
+                    spawnable.append((x, y))
+                    break
         colors = [(255, 0, 0), (0, 0, 255), (255, 192, 203), (255, 165, 0)]
         ghosts = []
         for i, (alg, name) in enumerate(GHOST_CONFIGS):

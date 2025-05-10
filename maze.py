@@ -88,17 +88,34 @@ class MazeGenerator:
 
 
 class Maze:
-    def __init__(self):
+    def __init__(self, show_rejected=False):
         self.generator = MazeGenerator(ROWS, COLS)
         self.grid = None
         self.pellets = []
         self.power_pellets = []
+        self.show_rejected = show_rejected
         self.generate_new_maze()
+
+    def draw_grid(self, grid, highlight=None):
+        # Helper to draw a given grid (for rejected maze visualization)
+        from utils import screen, SPRITES, TILE_SIZE, pygame, SCREEN_WIDTH, SCREEN_HEIGHT, BLACK
+        screen.fill(BLACK)
+        for row in range(ROWS):
+            for col in range(COLS):
+                if grid[row][col] == 1:
+                    screen.blit(SPRITES["wall"],
+                                (col * TILE_SIZE, row * TILE_SIZE))
+        if highlight:
+            for (x, y) in highlight:
+                pygame.draw.rect(
+                    screen, (255, 0, 0), (x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 2)
+        pygame.display.flip()
 
     def generate_new_maze(self):
         # Show loading message before generating maze
         from utils import screen, font, SCREEN_WIDTH, SCREEN_HEIGHT, BLACK, WHITE
         import pygame
+        import time
         screen.fill(BLACK)
         loading_text = font.render("Generating Maze...", True, WHITE)
         screen.blit(loading_text, (SCREEN_WIDTH // 2 - loading_text.get_width() // 2,
@@ -119,6 +136,14 @@ class Maze:
                         q.append((nx, ny))
             if len(vis) >= total//2:
                 break
+            # Show rejected maze if debug flag is set
+            if self.show_rejected:
+                self.draw_grid(self.grid, highlight=vis)
+                pygame.display.set_caption(
+                    f"Rejected Maze ({len(vis)} reachable)")
+                pygame.event.pump()
+                time.sleep(0.5)
+        pygame.display.set_caption("Pac-Man with AI")
         self.init_pellets()
 
     def init_pellets(self):
