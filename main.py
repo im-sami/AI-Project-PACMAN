@@ -6,10 +6,9 @@ from ghost import Ghost, GHOST_CONFIGS
 from utils import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, RED, BLUE, PINK, ORANGE, ROWS, COLS, font, screen, clock, game_over_screen, TILE_SIZE
 
 
-def main_game(show_rejected, show_ghost_paths, path_coverage_required):
+def main_game(show_ghost_paths, show_generations):
     try:
-        maze = Maze(show_rejected=show_rejected,
-                    path_coverage_required=path_coverage_required)
+        maze = Maze(show_generations=show_generations)
         pacman = PacMan()
         ghosts = Ghost.create_ghosts(maze)
 
@@ -131,10 +130,9 @@ if __name__ == "__main__":
     restart = True
 
     SHOW_GHOST_PATHS = True
-    PATH_COVERAGE_REQUIRED = 0.0
-    SHOW_REJECTED = True
+    SHOW_GENERATIONS = False  # Toggle this to show/hide maze generation visualization
 
     while restart:
-        restart = main_game(show_rejected=SHOW_REJECTED, show_ghost_paths=SHOW_GHOST_PATHS,
-                            path_coverage_required=PATH_COVERAGE_REQUIRED)
+        restart = main_game(show_ghost_paths=SHOW_GHOST_PATHS,
+                            show_generations=SHOW_GENERATIONS)
     pygame.quit()

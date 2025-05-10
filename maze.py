@@ -4,15 +4,43 @@ from utils import ROWS, COLS, SPRITES, screen, TILE_SIZE, font
 
 
 class MazeGenerator:
-    def __init__(self, rows, cols):
+    def __init__(self, rows, cols, show_generations=False):
         self.rows = rows
         self.cols = cols
+        self.show_generations = show_generations
+
+    def draw_grid(self, grid, highlight=None, caption=None):
+        # Helper to draw a given grid (for visualization)
+        from utils import screen, SPRITES, TILE_SIZE, pygame, SCREEN_WIDTH, SCREEN_HEIGHT, BLACK
+        screen.fill(BLACK)
+        for row in range(ROWS):
+            for col in range(COLS):
+                if grid[row][col] == 1:
+                    screen.blit(SPRITES["wall"],
+                                (col * TILE_SIZE, row * TILE_SIZE))
+        if highlight:
+            for (x, y) in highlight:
+                pygame.draw.rect(
+                    screen, (255, 0, 0), (x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 2)
+        if caption:
+            pygame.display.set_caption(caption)
+        pygame.display.flip()
 
     def generate_maze(self):
+        import pygame
+        import time
         population = [self._random_candidate() for _ in range(30)]
-        for _ in range(100):
+        for gen in range(100):
             scored = sorted(population, key=self._fitness, reverse=True)
             elite = scored[:10]
+            # Visualize all candidates in this generation if enabled
+            if self.show_generations:
+                for idx, candidate in enumerate(scored):
+                    self.draw_grid(candidate)
+                    pygame.display.set_caption(
+                        f"Generation {gen+1} - Candidate {idx+1}/30")
+                    pygame.event.pump()
+                    time.sleep(0.01)
             # Diversity injection: add 2 new random candidates each generation
             new_randoms = [self._random_candidate() for _ in range(2)]
             population = elite[:] + new_randoms
@@ -97,29 +125,13 @@ class MazeGenerator:
 
 
 class Maze:
-    def __init__(self, show_rejected=False, path_coverage_required=0.5):
-        self.generator = MazeGenerator(ROWS, COLS)
+    def __init__(self, show_generations=False):
+        self.generator = MazeGenerator(
+            ROWS, COLS, show_generations=show_generations)
         self.grid = None
         self.pellets = []
         self.power_pellets = []
-        self.show_rejected = show_rejected
-        self.path_coverage_required = path_coverage_required
         self.generate_new_maze()
-
-    def draw_grid(self, grid, highlight=None):
-        # Helper to draw a given grid (for rejected maze visualization)
-        from utils import screen, SPRITES, TILE_SIZE, pygame, SCREEN_WIDTH, SCREEN_HEIGHT, BLACK
-        screen.fill(BLACK)
-        for row in range(ROWS):
-            for col in range(COLS):
-                if grid[row][col] == 1:
-                    screen.blit(SPRITES["wall"],
-                                (col * TILE_SIZE, row * TILE_SIZE))
-        if highlight:
-            for (x, y) in highlight:
-                pygame.draw.rect(
-                    screen, (255, 0, 0), (x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE), 2)
-        pygame.display.flip()
 
     def generate_new_maze(self):
         # Show loading message before generating maze
@@ -131,28 +143,7 @@ class Maze:
         screen.blit(loading_text, (SCREEN_WIDTH // 2 - loading_text.get_width() // 2,
                                    SCREEN_HEIGHT // 2 - loading_text.get_height() // 2))
         pygame.display.flip()
-        # retry until reachable area covers ≥ path_coverage_required
-        total = ROWS * COLS
-        while True:
-            self.grid = self.generator.generate_maze()
-            vis = {(1, 1)}
-            q = deque([(1, 1)])
-            while q:
-                x, y = q.popleft()
-                for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-                    nx, ny = x+dx, y+dy
-                    if (nx, ny) not in vis and 0 <= nx < COLS and 0 <= ny < ROWS and self.grid[ny][nx] == 0:
-                        vis.add((nx, ny))
-                        q.append((nx, ny))
-            if len(vis) >= int(total * self.path_coverage_required):
-                break
-            # Show rejected maze if debug flag is set
-            if self.show_rejected:
-                self.draw_grid(self.grid, highlight=vis)
-                pygame.display.set_caption(
-                    f"Rejected Maze ({len(vis)} reachable)")
-                pygame.event.pump()
-                time.sleep(0.5)
+        self.grid = self.generator.generate_maze()
         pygame.display.set_caption("Pac-Man with AI")
         self.init_pellets()
 
