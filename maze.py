@@ -13,7 +13,9 @@ class MazeGenerator:
         for _ in range(100):
             scored = sorted(population, key=self._fitness, reverse=True)
             elite = scored[:10]
-            population = elite[:]
+            # Diversity injection: add 2 new random candidates each generation
+            new_randoms = [self._random_candidate() for _ in range(2)]
+            population = elite[:] + new_randoms
             while len(population) < 30:
                 a, b = random.sample(elite, 2)
                 child = self._mutate(self._crossover(a, b), 0.03)
@@ -30,9 +32,14 @@ class MazeGenerator:
     def _fitness(self, grid):
         if not self._solvable(grid):
             return -1
-        wall_score = sum(sum(row) for row in grid)
-        path_score = self._avg_path_length(grid)
-        return wall_score + path_score * 0.5
+        # Normalize wall_score and path_score
+        total_cells = self.rows * self.cols
+        wall_score = 1 - (sum(sum(row) for row in grid) /
+                          total_cells)  # 0..1, higher is more path
+        max_path = self.rows + self.cols  # rough upper bound for normalization
+        path_score = self._avg_path_length(grid) / max_path  # 0..~1
+        # Reward more open, long-path mazes (more path, less wall)
+        return wall_score * 0.7 + path_score * 0.3
 
     def _solvable(self, grid):
         tot = sum(1 for row in grid for v in row if v == 0)
@@ -73,9 +80,10 @@ class MazeGenerator:
         return grid
 
     def _crossover(self, a, b):
-        mid = self.rows // 2
+        # Two-point crossover: pick two random row indices
+        i1, i2 = sorted(random.sample(range(1, self.rows-1), 2))
         child = [row[:] for row in a]
-        for i in range(mid, self.rows):
+        for i in range(i1, i2):
             child[i] = b[i][:]
         return child
 
@@ -88,12 +96,13 @@ class MazeGenerator:
 
 
 class Maze:
-    def __init__(self, show_rejected=False):
+    def __init__(self, show_rejected=False, path_coverage_required=0.5):
         self.generator = MazeGenerator(ROWS, COLS)
         self.grid = None
         self.pellets = []
         self.power_pellets = []
         self.show_rejected = show_rejected
+        self.path_coverage_required = path_coverage_required
         self.generate_new_maze()
 
     def draw_grid(self, grid, highlight=None):
@@ -121,7 +130,7 @@ class Maze:
         screen.blit(loading_text, (SCREEN_WIDTH // 2 - loading_text.get_width() // 2,
                                    SCREEN_HEIGHT // 2 - loading_text.get_height() // 2))
         pygame.display.flip()
-        # retry until reachable area covers ≥50%
+        # retry until reachable area covers ≥ path_coverage_required
         total = ROWS * COLS
         while True:
             self.grid = self.generator.generate_maze()
@@ -134,7 +143,7 @@ class Maze:
                     if (nx, ny) not in vis and 0 <= nx < COLS and 0 <= ny < ROWS and self.grid[ny][nx] == 0:
                         vis.add((nx, ny))
                         q.append((nx, ny))
-            if len(vis) >= total//2:
+            if len(vis) >= int(total * self.path_coverage_required):
                 break
             # Show rejected maze if debug flag is set
             if self.show_rejected:

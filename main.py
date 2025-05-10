@@ -6,9 +6,10 @@ from ghost import Ghost, GHOST_CONFIGS
 from utils import SCREEN_WIDTH, SCREEN_HEIGHT, FPS, RED, BLUE, PINK, ORANGE, ROWS, COLS, font, screen, clock, game_over_screen, TILE_SIZE
 
 
-def main_game(show_rejected=False, show_ghost_paths=True):
+def main_game(show_rejected, show_ghost_paths, path_coverage_required):
     try:
-        maze = Maze(show_rejected=show_rejected)
+        maze = Maze(show_rejected=show_rejected,
+                    path_coverage_required=path_coverage_required)
         pacman = PacMan()
         ghosts = Ghost.create_ghosts(maze)
 
@@ -69,7 +70,17 @@ def main_game(show_rejected=False, show_ghost_paths=True):
                 maze.draw()
                 pacman.draw()
                 # Draw ghost paths and ghosts
-                for ghost_idx, ghost in enumerate(ghosts):
+                # Determine the closest ghost to Pac-Man
+                ghost_distances = [
+                    ((ghost.x - pacman.x) ** 2 + (ghost.y - pacman.y) ** 2)
+                    for ghost in ghosts
+                ]
+                closest_idx = ghost_distances.index(min(ghost_distances))
+                # Prepare drawing order: all except closest, then closest
+                draw_order = [i for i in range(
+                    len(ghosts)) if i != closest_idx] + [closest_idx]
+                for ghost_idx in draw_order:
+                    ghost = ghosts[ghost_idx]
                     # Draw ghost path as a colored line if enabled
                     if show_ghost_paths and hasattr(ghost, "visual_path") and ghost.visual_path:
                         color = ghost_path_colors[ghost_idx % len(
@@ -118,8 +129,12 @@ def main_game(show_rejected=False, show_ghost_paths=True):
 if __name__ == "__main__":
     pygame.init()
     restart = True
-    # Set this to True to see rejected mazes
-    show_rejected = False
+
+    SHOW_GHOST_PATHS = True
+    PATH_COVERAGE_REQUIRED = 0.5
+    SHOW_REJECTED = False
+
     while restart:
-        restart = main_game(show_rejected=show_rejected)
+        restart = main_game(show_rejected=SHOW_REJECTED, show_ghost_paths=SHOW_GHOST_PATHS,
+                            path_coverage_required=PATH_COVERAGE_REQUIRED)
     pygame.quit()
