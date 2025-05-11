@@ -31,8 +31,11 @@ class Ghost:
     @staticmethod
     def create_ghosts(maze):
         # build reachable empty cells
-        all_empty = [(x, y) for y in range(ROWS)
-                     for x in range(COLS) if maze.grid[y][x] == 0]
+        all_empty = []
+        for y in range(ROWS):
+            for x in range(COLS):
+                if maze.grid[y][x] == 0:
+                    all_empty.append((x, y))
         reachable = set()
         q = deque([(1, 1)])
         reachable.add((1, 1))

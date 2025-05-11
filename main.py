@@ -128,7 +128,7 @@ def main_game(show_ghost_paths, show_generations):
 if __name__ == "__main__":
     pygame.init()
     restart = True
-
+    time.sleep(10)
     SHOW_GHOST_PATHS = True
     SHOW_GENERATIONS = False  # Toggle this to show/hide maze generation visualization
 
