@@ -30,22 +30,22 @@ class Ghost:
 
     @staticmethod
     def create_ghosts(maze):
-        # build reachable empty cells
         all_empty = []
         for y in range(ROWS):
             for x in range(COLS):
                 if maze.grid[y][x] == 0:
                     all_empty.append((x, y))
         reachable = set()
-        q = deque([(1, 1)])
+        queue = deque([(1, 1)])
         reachable.add((1, 1))
-        while q:
-            x, y = q.popleft()
+        while queue:
+            x, y = queue.popleft()
             for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-                nx, ny = x+dx, y+dy
+                nx = x + dx
+                ny = y + dy
                 if (nx, ny) in all_empty and (nx, ny) not in reachable:
                     reachable.add((nx, ny))
-                    q.append((nx, ny))
+                    queue.append((nx, ny))
         spawnable = []
         for x, y in reachable:
             if (x, y) == (1, 1):
@@ -59,8 +59,10 @@ class Ghost:
         ghosts = []
         for i, (alg, name) in enumerate(GHOST_CONFIGS):
             x, y = random.choice(spawnable)
-            ghosts.append(Ghost(x, y, colors[i], alg, name))
-            ghosts[-1].start_x, ghosts[-1].start_y = x, y
+            ghost = Ghost(x, y, colors[i], alg, name)
+            ghost.start_x = x
+            ghost.start_y = y
+            ghosts.append(ghost)
         return ghosts
 
     def reset_position(self):
@@ -86,7 +88,8 @@ class Ghost:
             self.simple_move_away(pacman.x, pacman.y, maze)
             self.visual_path = []
         else:
-            target_x, target_y = pacman.x, pacman.y
+            target_x = pacman.x
+            target_y = pacman.y
             if self.algorithm == "A*":
                 path = self.a_star(self.x, self.y, target_x, target_y, maze)
             elif self.algorithm == "Dijkstra":
@@ -101,7 +104,8 @@ class Ghost:
             if path:
                 next_x, next_y = path[0]
                 self.prev_pos = (self.x, self.y)
-                self.x, self.y = next_x, next_y
+                self.x = next_x
+                self.y = next_y
             else:
                 self.simple_random_move(maze)
                 self.visual_path = []
@@ -112,7 +116,8 @@ class Ghost:
         start = (sx, sy)
         goal = (tx, ty)
         open_set = []
-        heapq.heappush(open_set, (0 + abs(sx-tx) + abs(sy-ty), 0, start, []))
+        heapq.heappush(open_set, (0 + abs(sx - tx) +
+                       abs(sy - ty), 0, start, []))
         closed = set()
         while open_set:
             f, g, pos, path = heapq.heappop(open_set)
@@ -123,14 +128,15 @@ class Ghost:
             closed.add(pos)
             x, y = pos
             for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-                nx, ny = x+dx, y+dy
+                nx = x + dx
+                ny = y + dy
                 if 0 <= nx < COLS and 0 <= ny < ROWS and maze.grid[ny][nx] == 0:
                     npos = (nx, ny)
                     if npos in closed:
                         continue
                     npath = path + [npos]
-                    h = abs(nx-tx) + abs(ny-ty)
-                    heapq.heappush(open_set, (g+1+h, g+1, npos, npath))
+                    h = abs(nx - tx) + abs(ny - ty)
+                    heapq.heappush(open_set, (g + 1 + h, g + 1, npos, npath))
         return []
 
     def dijkstra(self, sx, sy, tx, ty, maze):
@@ -148,13 +154,14 @@ class Ghost:
             closed.add(pos)
             x, y = pos
             for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-                nx, ny = x+dx, y+dy
+                nx = x + dx
+                ny = y + dy
                 if 0 <= nx < COLS and 0 <= ny < ROWS and maze.grid[ny][nx] == 0:
                     npos = (nx, ny)
                     if npos in closed:
                         continue
                     npath = path + [npos]
-                    heapq.heappush(open_set, (g+1, npos, npath))
+                    heapq.heappush(open_set, (g + 1, npos, npath))
         return []
 
     def full_bfs_path(self, target_x, target_y, maze):
@@ -168,22 +175,32 @@ class Ghost:
             if position == goal:
                 return path
             for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-                nx, ny = x + dx, y + dy
+                nx = x + dx
+                ny = y + dy
                 new_pos = (nx, ny)
-                if (0 <= nx < COLS and 0 <= ny < ROWS and
-                        maze.grid[ny][nx] == 0 and new_pos not in visited):
+                if (
+                    0 <= nx < COLS
+                    and 0 <= ny < ROWS
+                    and maze.grid[ny][nx] == 0
+                    and new_pos not in visited
+                ):
                     new_path = path + [new_pos]
                     queue.append((new_pos, new_path))
                     visited.add(new_pos)
         return []
 
     def check_pacman_caught(self, pacman):
-        return self.x == pacman.x and self.y == pacman.y and (not self.is_scared or self.ate_during_power)
+        return (
+            self.x == pacman.x
+            and self.y == pacman.y
+            and (not self.is_scared or self.ate_during_power)
+        )
 
     def simple_move_away(self, player_x, player_y, maze):
         valid_moves = []
         for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-            nx, ny = self.x + dx, self.y + dy
+            nx = self.x + dx
+            ny = self.y + dy
             if 0 <= nx < COLS and 0 <= ny < ROWS and maze.grid[ny][nx] == 0:
                 dist = abs(nx - player_x) + abs(ny - player_y)
                 if self.prev_pos and (nx, ny) == self.prev_pos:
@@ -191,7 +208,8 @@ class Ghost:
                 valid_moves.append((dist, nx, ny))
         if not valid_moves:
             for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-                nx, ny = self.x + dx, self.y + dy
+                nx = self.x + dx
+                ny = self.y + dy
                 if 0 <= nx < COLS and 0 <= ny < ROWS and maze.grid[ny][nx] == 0:
                     dist = abs(nx - player_x) + abs(ny - player_y)
                     valid_moves.append((dist, nx, ny))
@@ -199,30 +217,35 @@ class Ghost:
             valid_moves.sort(reverse=True)
             _, next_x, next_y = valid_moves[0]
             self.prev_pos = (self.x, self.y)
-            self.x, self.y = next_x, next_y
+            self.x = next_x
+            self.y = next_y
 
     def simple_random_move(self, maze):
         valid_moves = []
         for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-            nx, ny = self.x + dx, self.y + dy
+            nx = self.x + dx
+            ny = self.y + dy
             if 0 <= nx < COLS and 0 <= ny < ROWS and maze.grid[ny][nx] == 0:
                 if self.prev_pos and (nx, ny) == self.prev_pos:
                     continue
                 valid_moves.append((nx, ny))
         if not valid_moves:
             for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-                nx, ny = self.x + dx, self.y + dy
+                nx = self.x + dx
+                ny = self.y + dy
                 if 0 <= nx < COLS and 0 <= ny < ROWS and maze.grid[ny][nx] == 0:
                     valid_moves.append((nx, ny))
         if valid_moves:
             next_x, next_y = random.choice(valid_moves)
             self.prev_pos = (self.x, self.y)
-            self.x, self.y = next_x, next_y
+            self.x = next_x
+            self.y = next_y
 
     def simple_target(self, target_x, target_y, maze):
         valid_moves = []
         for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-            nx, ny = self.x + dx, self.y + dy
+            nx = self.x + dx
+            ny = self.y + dy
             if 0 <= nx < COLS and 0 <= ny < ROWS and maze.grid[ny][nx] == 0:
                 dist = abs(nx - target_x) + abs(ny - target_y)
                 valid_moves.append((dist, nx, ny))

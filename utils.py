@@ -1,9 +1,11 @@
 import pygame
 import os
 
-SCREEN_WIDTH, SCREEN_HEIGHT = 720, 720
+SCREEN_WIDTH = 720
+SCREEN_HEIGHT = 720
 TILE_SIZE = 30
-ROWS, COLS = SCREEN_HEIGHT // TILE_SIZE, SCREEN_WIDTH // TILE_SIZE
+ROWS = SCREEN_HEIGHT // TILE_SIZE
+COLS = SCREEN_WIDTH // TILE_SIZE
 FPS = 10
 
 BLACK = (0, 0, 0)
@@ -22,9 +24,10 @@ clock = pygame.time.Clock()
 font = pygame.font.SysFont('Arial', 25)
 
 
-def load_and_scale(path):
-    img = pygame.image.load(path).convert_alpha()
-    return pygame.transform.scale(img, (TILE_SIZE, TILE_SIZE))
+def load_and_scale(image_path):
+    image = pygame.image.load(image_path).convert_alpha()
+    scaled_image = pygame.transform.scale(image, (TILE_SIZE, TILE_SIZE))
+    return scaled_image
 
 
 SPRITES = {
@@ -51,15 +54,18 @@ def game_over_screen(score, won=False):
     text = font.render(message, True, color)
     restart_text = font.render("Press R to Restart", True, WHITE)
     quit_text = font.render("Press Q to Quit", True, WHITE)
-    screen.blit(text, (SCREEN_WIDTH // 2 - text.get_width() //
-                2, SCREEN_HEIGHT // 2 - 50))
-    screen.blit(restart_text, (SCREEN_WIDTH // 2 -
-                restart_text.get_width() // 2, SCREEN_HEIGHT // 2))
-    screen.blit(quit_text, (SCREEN_WIDTH // 2 -
-                quit_text.get_width() // 2, SCREEN_HEIGHT // 2 + 50))
+    text_x = SCREEN_WIDTH // 2 - text.get_width() // 2
+    text_y = SCREEN_HEIGHT // 2 - 50
+    restart_x = SCREEN_WIDTH // 2 - restart_text.get_width() // 2
+    restart_y = SCREEN_HEIGHT // 2
+    quit_x = SCREEN_WIDTH // 2 - quit_text.get_width() // 2
+    quit_y = SCREEN_HEIGHT // 2 + 50
+    screen.blit(text, (text_x, text_y))
+    screen.blit(restart_text, (restart_x, restart_y))
+    screen.blit(quit_text, (quit_x, quit_y))
     pygame.display.flip()
-    waiting = True
-    while waiting:
+    waiting_for_input = True
+    while waiting_for_input:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return "quit"
@@ -71,17 +77,19 @@ def game_over_screen(score, won=False):
     return "quit"
 
 
-def show_error_screen(error_msg):
+def show_error_screen(error_message):
     screen.fill(BLACK)
-    error_text = font.render(f"Error: {str(error_msg)}", True, RED)
+    error_text = font.render(f"Error: {str(error_message)}", True, RED)
     retry_text = font.render("Press R to restart or Q to quit", True, WHITE)
-    screen.blit(error_text, (SCREEN_WIDTH // 2 -
-                error_text.get_width() // 2, SCREEN_HEIGHT // 2 - 50))
-    screen.blit(retry_text, (SCREEN_WIDTH // 2 -
-                retry_text.get_width() // 2, SCREEN_HEIGHT // 2 + 20))
+    error_x = SCREEN_WIDTH // 2 - error_text.get_width() // 2
+    error_y = SCREEN_HEIGHT // 2 - 50
+    retry_x = SCREEN_WIDTH // 2 - retry_text.get_width() // 2
+    retry_y = SCREEN_HEIGHT // 2 + 20
+    screen.blit(error_text, (error_x, error_y))
+    screen.blit(retry_text, (retry_x, retry_y))
     pygame.display.flip()
-    waiting = True
-    while waiting:
+    waiting_for_input = True
+    while waiting_for_input:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False

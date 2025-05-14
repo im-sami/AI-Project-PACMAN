@@ -17,7 +17,6 @@ def main_game(show_ghost_paths, show_generations):
         power_duration = 10  # seconds
         frame_count = 0
 
-        # Assign a unique color for each ghost's path
         ghost_path_colors = [RED, BLUE, PINK, ORANGE]
 
         while running:
@@ -28,7 +27,8 @@ def main_game(show_ghost_paths, show_generations):
                     running = False
 
             if game_state == "playing":
-                dx, dy = 0, 0
+                dx = 0
+                dy = 0
                 keys = pygame.key.get_pressed()
                 if keys[pygame.K_UP]:
                     dy = -1
@@ -68,19 +68,15 @@ def main_game(show_ghost_paths, show_generations):
                 screen.fill((0, 0, 0))
                 maze.draw()
                 pacman.draw()
-                # Draw ghost paths and ghosts
-                # Determine the closest ghost to Pac-Man
                 ghost_distances = [
                     ((ghost.x - pacman.x) ** 2 + (ghost.y - pacman.y) ** 2)
                     for ghost in ghosts
                 ]
                 closest_idx = ghost_distances.index(min(ghost_distances))
-                # Prepare drawing order: all except closest, then closest
                 draw_order = [i for i in range(
                     len(ghosts)) if i != closest_idx] + [closest_idx]
                 for ghost_idx in draw_order:
                     ghost = ghosts[ghost_idx]
-                    # Draw ghost path as a colored line if enabled
                     if show_ghost_paths and hasattr(ghost, "visual_path") and ghost.visual_path:
                         color = ghost_path_colors[ghost_idx % len(
                             ghost_path_colors)]
@@ -103,7 +99,6 @@ def main_game(show_ghost_paths, show_generations):
                 elif result == "quit":
                     running = False
                 else:
-                    # Wait for user input instead of closing immediately
                     waiting = True
                     while waiting:
                         for event in pygame.event.get():
