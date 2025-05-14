@@ -4,9 +4,7 @@ This project is a Python implementation of the classic Pac-Man game, featuring A
 
 ## Gameplay Preview
 
-```markdown
 ![Gameplay Preview](gameplay.gif)
-```
 
 ## Features
 
